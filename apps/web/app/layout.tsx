@@ -1,14 +1,17 @@
-import { Inter } from "next/font/google";
-import { AuthProvider } from '@/context/AuthContext';
-import { ThemeProvider } from "@/components/providers/theme-provider";
-import { Toaster } from "@/components/ui/sonner"; // Run `npx shadcn-ui@latest add sonner`
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import './globals.css';
+import { ThemeProvider } from '@/components/providers/theme-provider';
+import { Toaster } from '@/components/ui/sonner';
+import { Navbar } from '@/components/layout/Navbar';
+import { Footer } from '@/components/layout/Footer';
+import { AuthProvider } from '@/context/AuthContext'; // <--- QUAN TRỌNG: Import AuthProvider
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const inter = Inter({ subsets: ['latin'] });
 
-export const metadata = {
-  title: "FreshSync - Port Orchestration",
-  description: "Advanced port-to-business logistics platform",
+export const metadata: Metadata = {
+  title: 'FreshSync - Smart Port Orchestration',
+  description: 'AI-driven port logistics optimization platform.',
 };
 
 export default function RootLayout({
@@ -18,10 +21,26 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <body className={inter.className}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {/* BẮT BUỘC: AuthProvider phải bọc lấy toàn bộ nội dung bên trong */}
           <AuthProvider>
-            {children}
+            <Navbar />
+            
+            <main className="min-h-screen">
+              {children}
+            </main>
+
+            {/* Footer */}
+            <div className="hidden md:block dashboard-hidden"> 
+               <Footer />
+            </div>
+
             <Toaster />
           </AuthProvider>
         </ThemeProvider>
