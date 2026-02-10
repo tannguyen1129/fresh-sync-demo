@@ -1,8 +1,8 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+// apps/api/src/auth/guards/roles.guard.ts
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Role } from '@prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
-import { JwtPayload } from '../dto/auth.dto';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -13,14 +13,20 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
+
+    // Nếu route không yêu cầu role nào -> Cho qua
     if (!requiredRoles) {
       return true;
     }
+
     const { user } = context.switchToHttp().getRequest();
-    const userPayload = user as JwtPayload;
     
-    // Check if user role is in required roles
-    // Trong thực tế có thể mapping Role string sang Enum nếu cần thiết
-    return requiredRoles.some((role) => role === userPayload.role);
+    // Nếu user chưa login hoặc không có role -> Chặn
+    if (!user || !user.role) {
+      return false;
+    }
+
+    // Kiểm tra xem role của user có nằm trong danh sách cho phép không
+    return requiredRoles.includes(user.role);
   }
 }

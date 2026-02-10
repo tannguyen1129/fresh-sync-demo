@@ -1,20 +1,51 @@
-import { Header } from "@/components/layout/Header";
+'use client';
+
+import { useState } from 'react';
 import { Sidebar } from "@/components/layout/Sidebar";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Menu } from "lucide-react";
+import { Logo } from "@/components/common/Logo";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header />
-      <div className="flex-1 items-start md:grid md:grid-cols-[220px_1fr] lg:grid-cols-[240px_1fr]">
-        <aside className="fixed top-14 z-30 hidden h-[calc(100vh-3.5rem)] w-full shrink-0 border-r md:sticky md:block">
-          <Sidebar />
-        </aside>
-        <main className="flex w-full flex-col overflow-hidden p-6">
-          {children}
+    <div className="flex h-screen bg-background">
+      {/* --- DESKTOP SIDEBAR (Ẩn trên Mobile) --- */}
+      <div className="hidden md:flex h-full w-64 flex-col fixed inset-y-0 z-50">
+        <Sidebar />
+      </div>
+
+      {/* --- MAIN CONTENT AREA --- */}
+      <div className="flex-1 flex flex-col md:pl-64 h-full">
+        
+        {/* --- MOBILE HEADER (Chỉ hiện trên Mobile) --- */}
+        <div className="md:hidden flex items-center justify-between p-4 border-b bg-background z-40">
+          <Logo size="sm" showText={true} />
+          
+          <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Menu className="h-6 w-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-64 border-r-0 bg-transparent shadow-none">
+              {/* Tái sử dụng Sidebar component cho Mobile */}
+              <Sidebar />
+            </SheetContent>
+          </Sheet>
+        </div>
+
+        {/* --- PAGE CONTENT --- */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="mx-auto max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {children}
+          </div>
         </main>
       </div>
     </div>
