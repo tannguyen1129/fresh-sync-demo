@@ -1,0 +1,14 @@
+{
+  "name": "freshsync-demo",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

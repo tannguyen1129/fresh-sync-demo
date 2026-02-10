@@ -1,0 +1,338 @@
+generator client {
+  provider      = "prisma-client-js"
+  // Thêm "linux-musl-openssl-3.0.x" để chạy trên Alpine Linux
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- ENUMS ---
+
+enum Role {
+  PORT_OPERATOR
+  LOGISTICS_COORDINATOR
+  TRUCK_DRIVER
+  PORT_AUTHORITY
+  SHIPPING_LINE_AGENT
+  ADMIN
+  // Added for Integrations
+  SHIPPING_LINE_SYSTEM
+  TOS_SYSTEM
+}
+
+enum CompanyType {
+  LOGISTICS
+  SHIPPING_LINE
+  PORT_OPERATOR
+  AUTHORITY
+}
+
+enum DriverStatus {
+  IDLE
+  BUSY
+  OFFLINE
+}
+
+enum ContainerStatus {
+  INCOMING      // Trên tàu đang đến
+  DISCHARGED    // Đã hạ bãi
+  GATE_OUT      // Đã rời cảng
+  RETURNED      // Đã trả rỗng
+}
+
+enum DOStatus {
+  HOLD
+  RELEASED
+}
+
+enum RequestStatus {
+  CREATED
+  VALIDATING
+  RECOMMENDED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum BookingStatus {
+  CONFIRMED
+  RESCHEDULED
+  BLOCKED
+  CANCELLED
+  COMPLETED
+}
+
+enum AssignmentType {
+  PICKUP
+  RETURN_EMPTY
+}
+
+enum AssignmentStatus {
+  NEW
+  ENROUTE
+  ARRIVED_GATE
+  PICKED_UP
+  DEPARTED
+  DELIVERED
+  RETURN_EMPTY_STARTED
+  RETURNED
+}
+
+enum DisruptionType {
+  CRANE_BREAKDOWN
+  GATE_CONGESTION
+  VESSEL_DELAY
+  SYSTEM_MAINTENANCE
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// --- 1. Identity & Org ---
+
+model Company {
+  id        String      @id @default(uuid())
+  name      String
+  type      CompanyType
+  users     User[]
+  drivers   Driver[]
+  requests  PickupRequest[]
+  createdAt DateTime    @default(now())
+}
+
+model User {
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  passwordHash       String
+  name               String?
+  role               Role
+  companyId          String
+  company            Company  @relation(fields: [companyId], references: [id])
+  driverId           String?
+  
+  // Mới thêm: Để quản lý session/refresh token
+  hashedRefreshToken String?
+
+  createdAt          DateTime @default(now())
+}
+
+model Driver {
+  id           String       @id @default(uuid())
+  name         String
+  phone        String
+  licensePlate String
+  companyId    String
+  company      Company      @relation(fields: [companyId], references: [id])
+  assignments  Assignment[]
+  status       DriverStatus @default(IDLE)
+  currentLat   Float?
+  currentLng   Float?
+  updatedAt    DateTime     @updatedAt
+}
+
+// --- 2. SSOT / UDP (Unified Data Platform) ---
+
+model Vessel {
+  id         String      @id @default(uuid())
+  vesselCode String      @unique
+  vesselName String
+  eta        DateTime
+  etd        DateTime
+  status     String      // "ARRIVED", "AT_ANCHOR", "INCOMING"
+  containers Container[]
+  updatedAt  DateTime    @updatedAt
+}
+
+model Container {
+  id              String   @id @default(uuid())
+  containerNo     String   @unique
+  sizeType        String   // "20DC", "40HC", "45HC"
+  isReefer        Boolean  @default(false)
+  isOog           Boolean  @default(false)
+  vesselId        String
+  vessel          Vessel   @relation(fields: [vesselId], references: [id])
+  status          ContainerStatus @default(INCOMING)
+  yardZone        String?
+  crt             DateTime? // Predicted Container Readiness Time
+  
+  deliveryOrder   DeliveryOrder?
+  returnInstruction EmptyReturnInstruction?
+  pickupRequests  PickupRequest[]
+  
+  updatedAt       DateTime @updatedAt
+}
+
+model DeliveryOrder {
+  id          String    @id @default(uuid())
+  containerId String    @unique
+  container   Container @relation(fields: [containerId], references: [id])
+  status      DOStatus
+  validUntil  DateTime?
+  updatedAt   DateTime  @updatedAt
+}
+
+model EmptyReturnInstruction {
+  id              String    @id @default(uuid())
+  containerId     String    @unique
+  container       Container @relation(fields: [containerId], references: [id])
+  shippingLine    String    // Tên hãng tàu
+  allowedDepots   String[]  // Array of Depot IDs/Names
+  notes           String?
+  updatedAt       DateTime  @updatedAt
+}
+
+// --- 3. Capacity & Ops ---
+
+model GateCapacity {
+  id              String   @id @default(uuid())
+  startTime       DateTime
+  endTime         DateTime
+  maxSlots        Int
+  usedSlots       Int      @default(0)
+  status          String   // "OPEN", "RESTRICTED", "CLOSED"
+  isPeakHour      Boolean  @default(false)
+  
+  @@unique([startTime, endTime]) // Mỗi khung giờ chỉ có 1 record
+}
+
+model Depot {
+  id           String @id @default(uuid())
+  name         String
+  lat          Float
+  lng          Float
+  capacity     Int
+  currentLoad  Int
+  status       String // "OPEN", "FULL"
+}
+
+model YardStatus {
+  id           String   @id @default(uuid())
+  zoneId       String   @unique
+  occupancyPct Float    // 0-100
+  updatedAt    DateTime @updatedAt
+}
+
+model CraneStatus {
+  id              String   @id @default(uuid())
+  craneId         String   @unique
+  isOperational   Boolean  @default(true)
+  maintenanceNote String?
+  updatedAt       DateTime @updatedAt
+}
+
+// --- 4. Orchestration & Booking ---
+
+model PickupRequest {
+  id              String   @id @default(uuid())
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id])
+  containerId     String
+  container       Container @relation(fields: [containerId], references: [id])
+  requestedTime   DateTime?
+  priority        Boolean  @default(false)
+  status          RequestStatus @default(CREATED)
+  
+  recommendation  Recommendation?
+  booking         Booking?
+  createdAt       DateTime @default(now())
+}
+
+model Recommendation {
+  id              String        @id @default(uuid())
+  requestId       String        @unique
+  request         PickupRequest @relation(fields: [requestId], references: [id])
+  slotStart       DateTime
+  slotEnd         DateTime
+  routeJson       Json          // { steps: [...] }
+  depotId         String?       
+  riskScore       Float         // 0.0 - 100.0
+  explanation     String
+  createdAt       DateTime      @default(now())
+}
+
+model Booking {
+  id                 String   @id @default(uuid())
+  requestId          String   @unique
+  request            PickupRequest @relation(fields: [requestId], references: [id])
+  confirmedSlotStart DateTime
+  confirmedSlotEnd   DateTime
+  status             BookingStatus @default(CONFIRMED)
+  blockedReason      String?
+  assignment         Assignment?
+  updatedAt          DateTime @updatedAt
+}
+
+model Assignment {
+  id           String           @id @default(uuid())
+  bookingId    String           @unique
+  booking      Booking          @relation(fields: [bookingId], references: [id])
+  driverId     String
+  driver       Driver           @relation(fields: [driverId], references: [id])
+  type         AssignmentType
+  status       AssignmentStatus @default(NEW)
+  
+  // Realtime tracking
+  etaToGate    DateTime?
+  actualIn     DateTime?
+  actualOut    DateTime?
+  routeJson    Json?
+  
+  updatedAt    DateTime @updatedAt
+}
+
+// --- 5. Incidents & Observability ---
+
+model Disruption {
+  id            String   @id @default(uuid())
+  type          DisruptionType
+  severity      Severity
+  startTime     DateTime
+  endTime       DateTime?
+  affectedZones String[] // ["ZONE_A", "GATE_1"]
+  description   String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String   // "INFO", "WARNING", "ERROR"
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  action       String
+  entityType   String
+  entityId     String
+  actorId      String
+  details      Json?
+  timestamp    DateTime @default(now())
+}
+
+model EsgReport {
+  id            String   @id @default(uuid())
+  date          DateTime @unique @db.Date
+  idleTimeSaved Int      // minutes
+  co2Reduced    Float    // kg
+  peakAvoided   Int      // count of trucks shifted from peak hours
+  details       Json?    // daily breakdown
+}
+
+model SystemSetting {
+  key         String   @id // VD: "PRIORITY_RULES"
+  value       Json     // VD: { "vip_weight": 2.0, "reefer_weight": 1.5 }
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+}

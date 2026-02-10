@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  # --- BACKEND (API) ---
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: freshsync_api
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      # Quan trọng: Host là 'postgres', không phải 'localhost'
+      DATABASE_URL: postgres://user:password@postgres:5432/freshsync?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: "super-secret-key-production"
+      PORT: 4000
+      FRONTEND_URL: "https://freshsync.umtoj.edu.vn"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - freshsync-net
+
+  # --- FRONTEND (WEB) ---
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: "https://freshsync.umtoj.edu.vn/api"
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api # Đợi API chạy xong mới chạy Web (tùy chọn)
+    networks:
+      - freshsync-net
+
+  # --- DATABASE ---
+  postgres:
+    image: postgres:15-alpine
+    container_name: freshsync_db
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: freshsync
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - freshsync-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d freshsync"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- REDIS ---
+  redis:
+    image: redis:alpine
+    container_name: freshsync_redis
+    restart: always
+    networks:
+      - freshsync-net
+
+  # --- GATEWAY (CADDY) ---
+  gateway:
+    image: caddy:alpine
+    container_name: freshsync_gateway
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+    networks:
+      - freshsync-net
+
+networks:
+  freshsync-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

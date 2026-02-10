@@ -1,0 +1,20 @@
+# Caddyfile
+freshsync.umtoj.edu.vn {
+    # 1. Routing cho Socket.io (Realtime)
+    handle /socket.io/* {
+        reverse_proxy api:4000
+    }
+
+    # 2. Routing cho API (Các request bắt đầu bằng /api)
+    handle /api/* {
+        reverse_proxy api:4000
+    }
+
+    # 3. Routing cho Frontend (Tất cả request còn lại)
+    handle /* {
+        reverse_proxy web:3000
+    }
+
+    # Tự động nén Gzip để load nhanh hơn
+    encode zstd gzip
+}
