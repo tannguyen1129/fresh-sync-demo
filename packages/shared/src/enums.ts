@@ -51,6 +51,47 @@ export enum Severity {
 export enum DOStatus {
   HOLD = 'HOLD',
   RELEASED = 'RELEASED',
+  EXPIRED = 'EXPIRED',
+  NOT_FOUND = 'NOT_FOUND',
+}
+
+export enum CustomsStatus {
+  CLEARED = 'CLEARED',
+  PENDING = 'PENDING',
+  INSPECTION_REQUIRED = 'INSPECTION_REQUIRED',
+  HOLD = 'HOLD',
+}
+
+export enum CargoType {
+  DRY = 'DRY',
+  REEFER = 'REEFER',
+  OOG = 'OOG',
+}
+
+export enum ContainerYardStatus {
+  LOCATED = 'LOCATED',
+  NOT_LOCATED = 'NOT_LOCATED',
+  BLOCKED = 'BLOCKED',
+  READY = 'READY',
+}
+
+export enum ContainerAvailability {
+  READY = 'READY',
+  BLOCKED = 'BLOCKED',
+  NOT_READY = 'NOT_READY',
+  UNDER_OPERATION = 'UNDER_OPERATION',
+}
+
+export enum EquipmentStatus {
+  AVAILABLE = 'AVAILABLE',
+  BUSY = 'BUSY',
+  UNAVAILABLE = 'UNAVAILABLE',
+}
+
+export enum YardAccessStatus {
+  ACCESSIBLE = 'ACCESSIBLE',
+  CONGESTED = 'CONGESTED',
+  BLOCKED = 'BLOCKED',
 }
 
 // Thêm cái này

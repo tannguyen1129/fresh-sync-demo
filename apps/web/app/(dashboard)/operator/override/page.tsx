@@ -2,98 +2,105 @@
 
 import { useState } from 'react';
 import { api } from '@/lib/api';
-import { ShieldAlert, Lock } from 'lucide-react';
+import { Lock, ShieldAlert } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { PageHeader } from '@/components/common/PageHeader';
+import { PageContainer } from '@/components/common/PageContainer';
+
+const TARGET_PRESETS: Record<string, string[]> = {
+  CONTAINER: ['CONT-001', 'CONT-003', 'CONT-013'],
+  ZONE: ['ZONE_A', 'ZONE_B', 'ZONE_REEFER'],
+  GATE: ['GATE_1', 'GATE_2', 'GATE_COLD'],
+};
 
 export default function OverridePage() {
   const [targetType, setTargetType] = useState('CONTAINER');
-  const [targetId, setTargetId] = useState('');
-  const [reason, setReason] = useState('');
+  const [targetId, setTargetId] = useState('CONT-001');
+  const [reason, setReason] = useState('Manual intervention for demo scenario');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [result, setResult] = useState<string>('');
 
   const handleBlock = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMessage('');
+    setResult('');
     try {
       const { data } = await api.post('/operator/override/block', {
-          targetType,
-          targetId,
-          reason
+        targetType,
+        targetId,
+        reason,
       });
-      setMessage(`✅ Success: ${data.message}`);
-      setTargetId('');
-      setReason('');
-    } catch (e: any) {
-        setMessage(`❌ Error: ${e.response?.data?.message || 'Failed'}`);
+      setResult(data.message);
+      toast.success('Override applied');
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Failed to apply override';
+      setResult(message);
+      toast.error(message);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Manual Override Operations</h1>
-      
-      <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-         <div className="flex items-center mb-6 text-red-700 bg-red-50 p-3 rounded">
-            <ShieldAlert className="w-6 h-6 mr-3" />
+    <PageContainer className="max-w-3xl">
+      <PageHeader title="Manual Override" subtitle="Block container, zone or gate and force orchestration to react immediately." />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><ShieldAlert className="h-5 w-5 text-red-600" /> Emergency Control</CardTitle>
+          <CardDescription>Container block changes D/O state to HOLD. Zone and gate block create disruptions and trigger re-optimization.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-6 flex flex-wrap gap-2">
+            {['CONTAINER', 'ZONE', 'GATE'].map((type) => (
+              <Button key={type} type="button" variant={targetType === type ? 'default' : 'outline'} onClick={() => {
+                setTargetType(type);
+                setTargetId(TARGET_PRESETS[type][0]);
+              }}>
+                {type}
+              </Button>
+            ))}
+          </div>
+
+          <form onSubmit={handleBlock} className="space-y-4">
             <div>
-                <p className="font-bold">Emergency Block / Hold</p>
-                <p className="text-sm">This action will trigger immediate re-optimization for all impacted bookings.</p>
+              <label className="mb-2 block text-sm font-medium">Suggested Targets</label>
+              <div className="flex flex-wrap gap-2">
+                {TARGET_PRESETS[targetType].map((preset) => (
+                  <Badge key={preset} variant="outline" className="cursor-pointer" onClick={() => setTargetId(preset)}>
+                    {preset}
+                  </Badge>
+                ))}
+              </div>
             </div>
-         </div>
 
-         <form onSubmit={handleBlock} className="space-y-4">
-             <div>
-                 <label className="block text-sm font-medium text-gray-700">Target Type</label>
-                 <select 
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm border p-2"
-                    value={targetType}
-                    onChange={(e) => setTargetType(e.target.value)}
-                 >
-                     <option value="CONTAINER">Container (Commercial Hold)</option>
-                     <option value="ZONE">Yard Zone (Maintenance/Incident)</option>
-                     <option value="GATE">Gate (Congestion/Close)</option>
-                 </select>
-             </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Target ID</label>
+              <Input value={targetId} onChange={(e) => setTargetId(e.target.value)} />
+            </div>
 
-             <div>
-                 <label className="block text-sm font-medium text-gray-700">Target ID</label>
-                 <input 
-                    type="text" 
-                    required
-                    placeholder={targetType === 'CONTAINER' ? 'e.g., CONT-001' : 'e.g., ZONE_A'}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm border p-2"
-                    value={targetId}
-                    onChange={(e) => setTargetId(e.target.value)}
-                 />
-             </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Reason</label>
+              <Input value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
 
-             <div>
-                 <label className="block text-sm font-medium text-gray-700">Reason</label>
-                 <input 
-                    type="text" 
-                    required
-                    placeholder="e.g., Unpaid fees, Crane breakdown, Urgent maintenance"
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm border p-2"
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                 />
-             </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              <Lock className="mr-2 h-4 w-4" />
+              {loading ? 'Applying...' : 'Apply Override'}
+            </Button>
+          </form>
 
-             <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
-             >
-                <Lock className="w-4 h-4 mr-2" />
-                {loading ? 'Processing...' : 'Apply Block'}
-             </button>
-         </form>
-
-         {message && <div className="mt-4 p-3 bg-gray-50 rounded text-sm font-medium">{message}</div>}
-      </div>
-    </div>
+          {result && (
+            <div className="mt-4 rounded-lg border bg-muted/40 p-4 text-sm">
+              {result}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </PageContainer>
   );
 }

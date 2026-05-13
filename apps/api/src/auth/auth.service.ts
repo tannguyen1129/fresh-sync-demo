@@ -6,6 +6,9 @@ import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthService {
+  private readonly accessTokenSecret = process.env.JWT_AT_SECRET || 'at-secret';
+  private readonly refreshTokenSecret = process.env.JWT_RT_SECRET || 'rt-secret';
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -105,11 +108,11 @@ export class AuthService {
 
     const [at, rt] = await Promise.all([
       this.jwtService.signAsync(jwtPayload, {
-        secret: 'at-secret', // Env var
+        secret: this.accessTokenSecret,
         expiresIn: '15m',
       }),
       this.jwtService.signAsync(jwtPayload, {
-        secret: 'rt-secret', // Env var
+        secret: this.refreshTokenSecret,
         expiresIn: '7d',
       }),
     ]);

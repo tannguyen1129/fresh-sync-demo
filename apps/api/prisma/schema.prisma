@@ -46,6 +46,28 @@ enum ContainerStatus {
 enum DOStatus {
   HOLD
   RELEASED
+  EXPIRED
+  NOT_FOUND
+}
+
+enum CustomsStatus {
+  CLEARED
+  PENDING
+  INSPECTION_REQUIRED
+  HOLD
+}
+
+enum CargoType {
+  DRY
+  REEFER
+  OOG
+}
+
+enum ContainerAvailability {
+  READY
+  BLOCKED
+  NOT_READY
+  UNDER_OPERATION
 }
 
 enum RequestStatus {
@@ -156,26 +178,30 @@ model Container {
   sizeType        String   // "20DC", "40HC", "45HC"
   isReefer        Boolean  @default(false)
   isOog           Boolean  @default(false)
+  cargoType       CargoType @default(DRY)
   vesselId        String
   vessel          Vessel   @relation(fields: [vesselId], references: [id])
   status          ContainerStatus @default(INCOMING)
   yardZone        String?
+  yardBlock       String?
+  availability    ContainerAvailability @default(READY)
   crt             DateTime? // Predicted Container Readiness Time
-  
+
   deliveryOrder   DeliveryOrder?
   returnInstruction EmptyReturnInstruction?
   pickupRequests  PickupRequest[]
-  
+
   updatedAt       DateTime @updatedAt
 }
 
 model DeliveryOrder {
-  id          String    @id @default(uuid())
-  containerId String    @unique
-  container   Container @relation(fields: [containerId], references: [id])
-  status      DOStatus
-  validUntil  DateTime?
-  updatedAt   DateTime  @updatedAt
+  id             String         @id @default(uuid())
+  containerId    String         @unique
+  container      Container      @relation(fields: [containerId], references: [id])
+  status         DOStatus
+  customsStatus  CustomsStatus  @default(CLEARED)
+  validUntil     DateTime?
+  updatedAt      DateTime       @updatedAt
 }
 
 model EmptyReturnInstruction {
@@ -198,7 +224,10 @@ model GateCapacity {
   usedSlots       Int      @default(0)
   status          String   // "OPEN", "RESTRICTED", "CLOSED"
   isPeakHour      Boolean  @default(false)
-  
+  drySlotsUsed    Int      @default(0)
+  reeferSlotsUsed Int      @default(0)
+  oogSlotsUsed    Int      @default(0)
+
   @@unique([startTime, endTime]) // Mỗi khung giờ chỉ có 1 record
 }
 
@@ -227,6 +256,16 @@ model CraneStatus {
   updatedAt       DateTime @updatedAt
 }
 
+model YardEquipment {
+  id          String   @id @default(uuid())
+  equipmentId String   @unique
+  type        String   // "REACH_STACKER", "RTG", "REEFER_POWER", "OOG_HANDLER"
+  zoneId      String?
+  status      String   @default("AVAILABLE") // AVAILABLE | BUSY | UNAVAILABLE
+  note        String?
+  updatedAt   DateTime @updatedAt
+}
+
 // --- 4. Orchestration & Booking ---
 
 model PickupRequest {
@@ -237,8 +276,15 @@ model PickupRequest {
   container       Container @relation(fields: [containerId], references: [id])
   requestedTime   DateTime?
   priority        Boolean  @default(false)
+  cargoType       String?
+  resolvedCargoType CargoType?
+  priorityScore   Float?
+  truckPlate      String?
+  driverName      String?
+  driverPhone     String?
+  terminalCode    String?
   status          RequestStatus @default(CREATED)
-  
+
   recommendation  Recommendation?
   booking         Booking?
   createdAt       DateTime @default(now())
@@ -254,6 +300,10 @@ model Recommendation {
   depotId         String?       
   riskScore       Float         // 0.0 - 100.0
   explanation     String
+  assignedGate    String?
+  predictedWaitMin Int?
+  validationTrace Json?
+  riskFactors     Json?
   createdAt       DateTime      @default(now())
 }
 
@@ -261,17 +311,23 @@ model Booking {
   id                 String   @id @default(uuid())
   requestId          String   @unique
   request            PickupRequest @relation(fields: [requestId], references: [id])
+  bookingCode        String   @unique
   confirmedSlotStart DateTime
   confirmedSlotEnd   DateTime
+  terminalCode       String?
+  assignedGate       String?
+  qrToken            String?
+  checkInStatus      String   @default("PENDING")
+  checkInAt          DateTime?
   status             BookingStatus @default(CONFIRMED)
   blockedReason      String?
-  assignment         Assignment?
+  assignments        Assignment[]
   updatedAt          DateTime @updatedAt
 }
 
 model Assignment {
   id           String           @id @default(uuid())
-  bookingId    String           @unique
+  bookingId    String
   booking      Booking          @relation(fields: [bookingId], references: [id])
   driverId     String
   driver       Driver           @relation(fields: [driverId], references: [id])

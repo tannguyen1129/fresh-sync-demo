@@ -4,8 +4,7 @@ import {
   Get, 
   Param, 
   Post, 
-  UseGuards, 
-  UsePipes 
+  UseGuards
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiParam } from '@nestjs/swagger';
 import { DriverService } from './driver.service';
@@ -17,6 +16,8 @@ import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { 
   UpdateAssignmentStatusSchema, 
   UpdateAssignmentStatusDto, 
+  QrCheckInSchema,
+  QrCheckInDto,
   StartReturnEmptySchema, 
   StartReturnEmptyDto 
 } from '@freshsync/shared';
@@ -36,24 +37,46 @@ export class DriverController {
     return this.service.getMyAssignments(driverId);
   }
 
+  @Get('tasks/today')
+  @ApiOperation({ summary: 'Get today tasks in driver-friendly format' })
+  getTodayTasks(@GetUser('driverId') driverId: string) {
+    return this.service.getTodayTasks(driverId);
+  }
+
   @Post('assignments/:id/status')
   @ApiOperation({ summary: 'Update status (Enroute, Arrived, Delivered...)' })
   @ApiParam({ name: 'id', type: 'string' })
-  @UsePipes(new ZodValidationPipe(UpdateAssignmentStatusSchema))
   updateStatus(
     @Param('id') id: string,
-    @Body() dto: UpdateAssignmentStatusDto
+    @Body(new ZodValidationPipe(UpdateAssignmentStatusSchema)) dto: UpdateAssignmentStatusDto
   ) {
     return this.service.updateStatus(id, dto);
   }
 
   @Post('return-empty')
   @ApiOperation({ summary: 'Request Smart Empty Return (Find best depot)' })
-  @UsePipes(new ZodValidationPipe(StartReturnEmptySchema))
   returnEmpty(
-    @Body() dto: StartReturnEmptyDto,
-    @GetUser('sub') userId: string // Pass userId or driverId as needed
+    @Body(new ZodValidationPipe(StartReturnEmptySchema)) dto: StartReturnEmptyDto,
+    @GetUser('driverId') driverId: string,
   ) {
-    return this.service.requestEmptyReturn(userId, dto);
+    return this.service.requestEmptyReturn(driverId, dto);
+  }
+
+  @Post('bookings/:id/check-in')
+  @ApiOperation({ summary: 'Validate QR token and mark booking checked-in' })
+  @ApiParam({ name: 'id', type: 'string' })
+  checkIn(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(QrCheckInSchema)) dto: QrCheckInDto,
+    @GetUser('driverId') driverId: string,
+  ) {
+    return this.service.checkInBooking(driverId, id, dto);
+  }
+
+  @Get('tasks/:id/qr')
+  @ApiOperation({ summary: 'Get QR check-in package for a driver task' })
+  @ApiParam({ name: 'id', type: 'string' })
+  getTaskQr(@Param('id') id: string, @GetUser('driverId') driverId: string) {
+    return this.service.getTaskQr(driverId, id);
   }
 }

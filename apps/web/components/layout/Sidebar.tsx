@@ -29,6 +29,7 @@ export function Sidebar() {
       case 'PORT_OPERATOR':
         return [
           { href: '/operator/dashboard', label: 'Overview', icon: LayoutDashboard },
+          { href: '/operator/map', label: 'Live Map', icon: Zap },
           { href: '/operator/capacity', label: 'Capacity Manager', icon: Anchor },
           { href: '/operator/incidents', label: 'Incidents', icon: AlertTriangle },
           { href: '/operator/override', label: 'Manual Override', icon: HandMetal }, 
@@ -39,11 +40,12 @@ export function Sidebar() {
           { href: '/business/dashboard', label: 'My Requests', icon: LayoutDashboard },
           { href: '/business/bookings', label: 'Bookings', icon: FileText },
           { href: '/business/pickup', label: 'New Request', icon: PlusCircle },
-          { href: '/business/fleet', label: 'Fleet & Drivers', icon: Truck },
+          { href: '/business/roi', label: 'ROI & Sustainability', icon: Truck },
         ];
       case 'TRUCK_DRIVER':
         return [
           { href: '/driver/dashboard', label: 'My Assignments', icon: Truck },
+          { href: '/driver/qr', label: 'QR Check-in', icon: FileText },
           { href: '/driver/return-empty', label: 'Return Empty', icon: Anchor }, // Thêm cho Use Case 1B
         ];
       case 'PORT_AUTHORITY':
@@ -58,21 +60,21 @@ export function Sidebar() {
   const links = getLinks();
 
   return (
-    <div className="flex h-screen w-64 flex-col bg-slate-950 text-white border-r border-slate-800">
-      {/* 1. Header Area với Logo Mới */}
-      <div className="flex h-16 items-center px-6 border-b border-slate-800 bg-slate-950">
-        {/* Truyền className text-white để ghi đè màu chữ mặc định của Logo 
-            vì Sidebar luôn là nền tối bất kể Light/Dark mode 
-        */}
+    <div className="flex h-full w-full flex-col border-r border-slate-800 bg-slate-950 text-white">
+      <div className="flex h-20 items-center border-b border-slate-800 bg-slate-950 px-6">
         <div className="[&_span]:text-white">
           <Logo size="md" />
         </div>
       </div>
-      
-      {/* 2. Navigation Area */}
+
+      <div className="border-b border-slate-800/80 px-6 py-4">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">Role</div>
+        <div className="mt-2 text-sm font-medium text-slate-200">{user?.role?.replace(/_/g, ' ') || 'Demo User'}</div>
+      </div>
+
       <div className="flex-1 overflow-y-auto py-6">
         <nav className="space-y-1 px-3">
-          <p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+          <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
             Menu
           </p>
           {links.map((link) => {
@@ -97,7 +99,6 @@ export function Sidebar() {
         </nav>
       </div>
 
-      {/* 3. User Profile Footer */}
       <div className="border-t border-slate-800 p-4 bg-slate-900/50">
         <div className="flex items-center gap-3 mb-4">
             <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-blue-500 to-teal-400 flex items-center justify-center text-white font-bold shadow-sm">

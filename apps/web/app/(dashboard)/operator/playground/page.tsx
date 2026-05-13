@@ -2,118 +2,110 @@
 
 import { useState } from 'react';
 import { api } from '@/lib/api';
-import { Zap, Anchor, Truck, AlertOctagon } from 'lucide-react';
+import { RotateCcw, TrafficCone, TriangleAlert } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { PageHeader } from '@/components/common/PageHeader';
+import { PageContainer } from '@/components/common/PageContainer';
 
-export default function IntegrationPlayground() {
+export default function OperatorPlaygroundPage() {
   const [log, setLog] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const addLog = (msg: string) => setLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev]);
+  const addLog = (message: string) => {
+    setLog((prev) => [`[${new Date().toLocaleTimeString()}] ${message}`, ...prev]);
+  };
 
-  const simulate = async (endpoint: string, payload: any, name: string) => {
+  const runAction = async (label: string, request: () => Promise<any>) => {
     setLoading(true);
     try {
-        await api.post(endpoint, payload);
-        addLog(`✅ Triggered: ${name}`);
-    } catch (e: any) {
-        addLog(`❌ Failed: ${name} - ${e.response?.data?.message || e.message}`);
+      const result = await request();
+      addLog(`SUCCESS ${label}: ${result?.data?.message || 'completed'}`);
+    } catch (error: any) {
+      addLog(`FAILED ${label}: ${error.response?.data?.message || error.message}`);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-       <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-           <Zap className="w-6 h-6 text-yellow-500 mr-2" />
-           Integration Playground
-       </h1>
-       <p className="text-gray-500">Simulate external pushes from Shipping Lines and TOS.</p>
+    <PageContainer className="max-w-4xl">
+      <PageHeader title="Demo Playground" subtitle="Fast trigger buttons for Sprint 4 control tower storytelling." />
 
-       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-           {/* Shipping Line Simulations */}
-           <div className="bg-white p-6 rounded-lg shadow border border-gray-200 space-y-4">
-               <h3 className="font-bold text-blue-800 flex items-center">
-                   <Anchor className="w-5 h-5 mr-2" /> Shipping Line System
-               </h3>
-               
-               <div className="space-y-2">
-                   <button 
-                       disabled={loading}
-                       onClick={() => simulate('/integrations/shippingline/delivery-orders', { 
-                           containerNo: 'CONT-001', status: 'HOLD' 
-                       }, 'Push D/O HOLD (CONT-001)')}
-                       className="w-full text-left px-4 py-2 bg-blue-50 hover:bg-blue-100 rounded text-blue-700 text-sm font-medium border border-blue-200"
-                   >
-                       👉 Push D/O HOLD (Trigger UC2 Block)
-                   </button>
+      <div className="grid gap-6 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><TrafficCone className="h-5 w-5 text-amber-600" /> Simulate Gate Congestion</CardTitle>
+            <CardDescription>Blocks `GATE_1` and lets the queue reschedule impacted bookings.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              className="w-full"
+              disabled={loading}
+              onClick={() => runAction('Gate congestion', () => api.post('/operator/override/block', {
+                targetType: 'GATE',
+                targetId: 'GATE_1',
+                reason: 'Long queue at Gate 1',
+              }))}
+            >
+              Trigger GATE_1 Congestion
+            </Button>
+          </CardContent>
+        </Card>
 
-                   <button 
-                       disabled={loading}
-                       onClick={() => simulate('/integrations/shippingline/delivery-orders', { 
-                           containerNo: 'CONT-001', status: 'RELEASED' 
-                       }, 'Push D/O RELEASED (CONT-001)')}
-                       className="w-full text-left px-4 py-2 bg-blue-50 hover:bg-blue-100 rounded text-blue-700 text-sm font-medium border border-blue-200"
-                   >
-                       👉 Push D/O RELEASED
-                   </button>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><TriangleAlert className="h-5 w-5 text-red-600" /> Simulate D/O HOLD</CardTitle>
+            <CardDescription>Blocks `CONT-001` and forces the active booking into `BLOCKED`.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              className="w-full bg-red-600 hover:bg-red-700"
+              disabled={loading}
+              onClick={() => runAction('D/O HOLD', () => api.post('/operator/override/block', {
+                targetType: 'CONTAINER',
+                targetId: 'CONT-001',
+                reason: 'Commercial hold for demo',
+              }))}
+            >
+              Trigger CONT-001 HOLD
+            </Button>
+          </CardContent>
+        </Card>
 
-                   <button 
-                       disabled={loading}
-                       onClick={() => simulate('/integrations/shippingline/vessels', { 
-                           vesselCode: 'VSL-001', newEta: new Date(Date.now() + 5*3600*1000).toISOString() 
-                       }, 'Push Vessel Delay (+5h)')}
-                       className="w-full text-left px-4 py-2 bg-blue-50 hover:bg-blue-100 rounded text-blue-700 text-sm font-medium border border-blue-200"
-                   >
-                       👉 Push Vessel Delay (Trigger Re-calc CRT)
-                   </button>
-               </div>
-           </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><RotateCcw className="h-5 w-5 text-sky-600" /> Reset Scenario</CardTitle>
+            <CardDescription>Clears active disruptions and restores demo bookings affected during Sprint 4.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={loading}
+              onClick={() => runAction('Reset scenario', () => api.post('/operator/playground/reset'))}
+            >
+              Reset Sprint 4 State
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
 
-           {/* TOS Simulations */}
-           <div className="bg-white p-6 rounded-lg shadow border border-gray-200 space-y-4">
-               <h3 className="font-bold text-orange-800 flex items-center">
-                   <Truck className="w-5 h-5 mr-2" /> TOS (Terminal Operating System)
-               </h3>
-               
-               <div className="space-y-2">
-                   <button 
-                       disabled={loading}
-                       onClick={() => simulate('/integrations/tos/disruptions', { 
-                           type: 'CRANE_BREAKDOWN', 
-                           severity: 'HIGH',
-                           startTime: new Date().toISOString(),
-                           affectedZones: ['ZONE_A'],
-                           description: 'Main Crane 01 Hydraulic Failure'
-                       }, 'Report Crane Breakdown (Zone A)')}
-                       className="w-full text-left px-4 py-2 bg-orange-50 hover:bg-orange-100 rounded text-orange-700 text-sm font-medium border border-orange-200"
-                   >
-                       👉 Report Crane Breakdown (Trigger UC3 Re-optimize)
-                   </button>
-
-                   <button 
-                       disabled={loading}
-                       onClick={() => simulate('/integrations/tos/disruptions', { 
-                           type: 'GATE_CONGESTION', 
-                           severity: 'MEDIUM',
-                           startTime: new Date().toISOString(),
-                           affectedZones: ['GATE_1'],
-                           description: 'Long queue at Gate 1'
-                       }, 'Report Gate Congestion')}
-                       className="w-full text-left px-4 py-2 bg-orange-50 hover:bg-orange-100 rounded text-orange-700 text-sm font-medium border border-orange-200"
-                   >
-                       👉 Report Gate Congestion
-                   </button>
-               </div>
-           </div>
-       </div>
-
-       {/* Logs */}
-       <div className="bg-gray-900 rounded-lg p-4 text-xs font-mono text-green-400 h-48 overflow-y-auto">
-           {log.length === 0 ? <span className="text-gray-500">// Waiting for simulation events...</span> : log.map((l, i) => (
-               <div key={i}>{l}</div>
-           ))}
-       </div>
-    </div>
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Execution Log</CardTitle>
+          <CardDescription>Use this during the demo to confirm what the control tower just triggered.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="max-h-[320px] space-y-2 overflow-y-auto rounded-lg bg-slate-950 p-4 font-mono text-xs text-emerald-400">
+            {log.length === 0 ? (
+              <div className="text-slate-500">// waiting for operator actions...</div>
+            ) : log.map((entry, index) => (
+              <div key={`${entry}-${index}`}>{entry}</div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </PageContainer>
   );
 }

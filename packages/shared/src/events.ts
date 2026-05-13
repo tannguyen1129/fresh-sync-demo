@@ -26,6 +26,7 @@ export interface BookingUpdatedPayload {
   bookingId: string;
   requestId: string;
   newStatus: BookingStatus;
+  status?: BookingStatus;
   reason?: string;
   slotStart?: string; // ISO
   slotEnd?: string;   // ISO
@@ -42,10 +43,15 @@ export interface DisruptionCreatedPayload {
 
 export interface DriverAssignmentPayload {
   assignmentId: string;
+  bookingId?: string;
   type: 'PICKUP' | 'RETURN_EMPTY';
   containerNo: string;
+  status: AssignmentStatus;
+  driverName?: string;
+  licensePlate?: string;
   location: { name: string; lat: number; lng: number }; // Gate or Depot
   timeWindow: { start: string; end: string };
+  updatedAt?: string;
 }
 
 export interface CongestionUpdatePayload {

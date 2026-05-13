@@ -1,5 +1,6 @@
 # apps/api/Dockerfile
 FROM node:18-alpine AS builder
+ENV CI=true
 
 RUN npm install -g pnpm
 WORKDIR /app

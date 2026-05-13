@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+import Cookies from 'js-cookie';
 
 interface UseSocketResult {
   socket: Socket | null;
@@ -14,14 +15,16 @@ export const useSocket = (token?: string): UseSocketResult => {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
+    const authToken = token || Cookies.get('accessToken');
+
     // If no token (and not public), don't connect
     // Adjust logic if you have public endpoints
-    if (!token) return;
+    if (!authToken) return;
 
     // 1. Create Socket only if it doesn't exist
     if (!socketRef.current) {
         socketRef.current = io(SOCKET_URL, {
-            auth: { token },
+            auth: { token: authToken },
             transports: ['websocket'],
             autoConnect: false, // Wait for manual connect
         });
@@ -39,7 +42,7 @@ export const useSocket = (token?: string): UseSocketResult => {
     } else {
         // If socket exists but token changed, update auth
         if (socketRef.current.auth && typeof socketRef.current.auth === 'object') {
-             (socketRef.current.auth as any).token = token;
+             (socketRef.current.auth as any).token = authToken;
         }
     }
 

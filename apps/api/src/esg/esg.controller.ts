@@ -45,4 +45,10 @@ export class EsgController {
     });
     return this.service.exportCsv();
   }
+
+  @Get('cat-lai-projection')
+  @ApiOperation({ summary: 'Cat Lai green-economy expected-scenario projection' })
+  getCatLaiProjection() {
+    return this.service.getCatLaiProjection();
+  }
 }

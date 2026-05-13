@@ -1,7 +1,4 @@
-version: '3.8'
-
 services:
-  # --- BACKEND (API) ---
   api:
     build:
       context: .
@@ -9,9 +6,8 @@ services:
     container_name: freshsync_api
     restart: always
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4100:4000"
     environment:
-      # Quan trọng: Host là 'postgres', không phải 'localhost'
       DATABASE_URL: postgres://user:password@postgres:5432/freshsync?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -26,26 +22,27 @@ services:
     networks:
       - freshsync-net
 
-  # --- FRONTEND (WEB) ---
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: "https://freshsync.umtoj.edu.vn/api"
+    container_name: freshsync_web
     restart: always
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3100:3000"
     depends_on:
-      - api # Đợi API chạy xong mới chạy Web (tùy chọn)
+      - api
     networks:
       - freshsync-net
 
-  # --- DATABASE ---
   postgres:
     image: postgres:15-alpine
     container_name: freshsync_db
     restart: always
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
@@ -60,29 +57,12 @@ services:
       timeout: 5s
       retries: 5
 
-  # --- REDIS ---
   redis:
     image: redis:alpine
     container_name: freshsync_redis
     restart: always
-    networks:
-      - freshsync-net
-
-  # --- GATEWAY (CADDY) ---
-  gateway:
-    image: caddy:alpine
-    container_name: freshsync_gateway
-    restart: always
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - web
-      - api
+      - "127.0.0.1:6379:6379"
     networks:
       - freshsync-net
 
@@ -92,5 +72,3 @@ networks:
 
 volumes:
   postgres_data:
-  caddy_data:
-  caddy_config:

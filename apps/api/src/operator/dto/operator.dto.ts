@@ -14,6 +14,21 @@ export class CreateGateCapacityDto {
   @IsInt()
   @Min(0)
   maxSlots!: number;
+
+  @ApiProperty({ required: false, example: 40 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  usedSlots?: number;
+
+  @ApiProperty({ required: false, example: 'OPEN' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiProperty({ required: false, example: false })
+  @IsOptional()
+  isPeakHour?: boolean;
 }
 
 export class UpdatePriorityRulesDto {

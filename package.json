@@ -5,7 +5,11 @@
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
-    "lint": "pnpm -r run lint"
+    "lint": "pnpm -r run lint",
+    "deploy:prod": "bash ./scripts/prod-deploy.sh",
+    "demo:reset": "bash ./scripts/demo-reset.sh",
+    "demo:smoke": "bash ./scripts/demo-smoke.sh",
+    "demo:scenario:disruption": "bash ./scripts/demo-scenario-disruption.sh"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

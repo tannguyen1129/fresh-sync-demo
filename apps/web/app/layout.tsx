@@ -1,11 +1,10 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import 'leaflet/dist/leaflet.css';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
-import { Navbar } from '@/components/layout/Navbar';
-import { Footer } from '@/components/layout/Footer';
-import { AuthProvider } from '@/context/AuthContext'; // <--- QUAN TRỌNG: Import AuthProvider
+import { AuthProvider } from '@/context/AuthContext';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -28,19 +27,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {/* BẮT BUỘC: AuthProvider phải bọc lấy toàn bộ nội dung bên trong */}
           <AuthProvider>
-            <Navbar />
-            
-            <main className="min-h-screen">
+            <main className="min-h-screen bg-background text-foreground">
               {children}
             </main>
-
-            {/* Footer */}
-            <div className="hidden md:block dashboard-hidden"> 
-               <Footer />
-            </div>
-
             <Toaster />
           </AuthProvider>
         </ThemeProvider>

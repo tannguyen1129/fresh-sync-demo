@@ -12,9 +12,15 @@ import {
 // --- 1. Business: Pickup Request & Booking ---
 
 export const CreatePickupRequestSchema = z.object({
-  containerId: z.string().min(1, "Container ID is required"),
+  // P1 keeps the existing field name for compatibility, but accepts container ID or number (e.g. CONT-001).
+  containerId: z.string().min(1, "Container number or ID is required"),
   requestedTime: z.string().datetime().optional(), // ISO String
   priority: z.boolean().default(false),
+  cargoType: z.string().max(60).optional(),
+  truckPlate: z.string().max(30).optional(),
+  driverName: z.string().max(80).optional(),
+  driverPhone: z.string().max(30).optional(),
+  terminalCode: z.string().max(30).optional(),
 });
 
 export type CreatePickupRequestDto = z.infer<typeof CreatePickupRequestSchema>;
@@ -26,6 +32,14 @@ export const ConfirmBookingSchema = z.object({
 });
 
 export type ConfirmBookingDto = z.infer<typeof ConfirmBookingSchema>;
+
+export const QrCheckInSchema = z.object({
+  qrToken: z.string().min(6),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
+});
+
+export type QrCheckInDto = z.infer<typeof QrCheckInSchema>;
 
 // --- 2. Driver: Assignment Operations ---
 

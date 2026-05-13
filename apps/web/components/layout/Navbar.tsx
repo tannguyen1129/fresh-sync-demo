@@ -2,10 +2,9 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Menu, X, ArrowRight } from 'lucide-react';
+import { Menu, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Logo } from '@/components/common/Logo'; // Import logo vừa tạo
+import { Logo } from '@/components/common/Logo';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -19,9 +18,7 @@ const navItems = [
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = React.useState(false);
-  const pathname = usePathname();
 
-  // Hiệu ứng đổi màu khi cuộn trang
   React.useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
@@ -30,25 +27,17 @@ export function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Ẩn Navbar trên các trang Dashboard (vì Dashboard có Header riêng)
-  if (pathname.includes('/dashboard') || pathname.includes('/operator') || pathname.includes('/driver')) {
-    return null; 
-  }
-
   return (
     <header
       className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b",
+        "fixed top-0 left-0 right-0 z-50 border-b transition-all duration-300",
         isScrolled 
           ? "bg-background/80 backdrop-blur-md border-border py-3 shadow-sm" 
           : "bg-transparent border-transparent py-5"
       )}
     >
       <div className="container mx-auto px-4 md:px-6 flex items-center justify-between">
-        {/* 1. Logo */}
         <Logo />
-
-        {/* 2. Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-8">
           {navItems.map((item) => (
             <Link
@@ -61,10 +50,9 @@ export function Navbar() {
           ))}
         </nav>
 
-        {/* 3. Actions (Theme + Login) */}
         <div className="hidden md:flex items-center gap-4">
           <ThemeToggle />
-          <div className="h-6 w-px bg-border" /> {/* Divider */}
+          <div className="h-6 w-px bg-border" />
           <Link href="/login">
             <Button variant="ghost" className="font-medium">Sign In</Button>
           </Link>
@@ -75,7 +63,6 @@ export function Navbar() {
           </Link>
         </div>
 
-        {/* 4. Mobile Menu (Hamburger) */}
         <div className="md:hidden flex items-center gap-2">
             <ThemeToggle />
             <Sheet>

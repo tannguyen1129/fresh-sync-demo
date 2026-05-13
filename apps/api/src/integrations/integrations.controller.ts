@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards, UsePipes } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { IntegrationsService } from './integrations.service';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -24,16 +24,14 @@ export class IntegrationsController {
   @Post('shippingline/delivery-orders')
   @Roles(Role.SHIPPING_LINE_SYSTEM, Role.ADMIN) // Auth Requirement
   @ApiOperation({ summary: 'Update D/O Status (Trigger Hold Logic)' })
-  @UsePipes(new ZodValidationPipe(IngestDOUpdateSchema))
-  updateDO(@Body() dto: IngestDOUpdateDto, @GetUser('sub') userId: string) {
+  updateDO(@Body(new ZodValidationPipe(IngestDOUpdateSchema)) dto: IngestDOUpdateDto, @GetUser('sub') userId: string) {
     return this.service.updateDOStatus(dto, userId);
   }
 
   @Post('shippingline/vessels')
   @Roles(Role.SHIPPING_LINE_SYSTEM, Role.ADMIN)
   @ApiOperation({ summary: 'Update Vessel ETA' })
-  @UsePipes(new ZodValidationPipe(IngestVesselDelaySchema))
-  updateVessel(@Body() dto: IngestVesselDelayDto, @GetUser('sub') userId: string) {
+  updateVessel(@Body(new ZodValidationPipe(IngestVesselDelaySchema)) dto: IngestVesselDelayDto, @GetUser('sub') userId: string) {
     return this.service.updateVessel(dto, userId);
   }
 
@@ -50,8 +48,7 @@ export class IntegrationsController {
   @Post('tos/disruptions')
   @Roles(Role.TOS_SYSTEM, Role.ADMIN) // Auth Requirement
   @ApiOperation({ summary: 'Report Incident/Disruption' })
-  @UsePipes(new ZodValidationPipe(CreateDisruptionSchema))
-  reportDisruption(@Body() dto: CreateDisruptionDto, @GetUser('sub') userId: string) {
+  reportDisruption(@Body(new ZodValidationPipe(CreateDisruptionSchema)) dto: CreateDisruptionDto, @GetUser('sub') userId: string) {
     return this.service.reportDisruption(dto, userId);
   }
 

@@ -1,11 +1,12 @@
 import { 
+  BadRequestException,
   Body, 
   Controller, 
   Get, 
   Param, 
   Post, 
-  UseGuards, 
-  UsePipes 
+  Query,
+  UseGuards
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiParam } from '@nestjs/swagger';
 import { BusinessService } from './business.service';
@@ -31,9 +32,8 @@ export class BusinessController {
 
   @Post('pickup-requests')
   @ApiOperation({ summary: 'Submit Pickup Request & Get Recommendation' })
-  @UsePipes(new ZodValidationPipe(CreatePickupRequestSchema))
   createRequest(
-    @Body() dto: CreatePickupRequestDto,
+    @Body(new ZodValidationPipe(CreatePickupRequestSchema)) dto: CreatePickupRequestDto,
     @GetUser('companyId') companyId: string,
   ) {
     return this.service.createPickupRequest(companyId, dto);
@@ -51,14 +51,13 @@ export class BusinessController {
 
   @Post('bookings/:requestId/confirm')
   @ApiOperation({ summary: 'Confirm Booking & Reserve Slot' })
-  @UsePipes(new ZodValidationPipe(ConfirmBookingSchema))
   confirmBooking(
-    @Body() dto: ConfirmBookingDto,
+    @Param('requestId') requestId: string,
+    @Body(new ZodValidationPipe(ConfirmBookingSchema)) dto: ConfirmBookingDto,
     @GetUser('companyId') companyId: string,
   ) {
-    // DTO có requestId, nhưng ta validate lại với param cho chắc
-    if (dto.requestId !== dto.requestId) {
-        // Logic check optional, here we rely on DTO
+    if (dto.requestId !== requestId) {
+      throw new BadRequestException('Request ID mismatch');
     }
     return this.service.confirmBooking(companyId, dto);
   }
@@ -67,5 +66,21 @@ export class BusinessController {
   @ApiOperation({ summary: 'List My Bookings' })
   getMyBookings(@GetUser('companyId') companyId: string) {
     return this.service.getMyBookings(companyId);
+  }
+
+  @Get('requests')
+  @ApiOperation({ summary: 'List My Pickup Requests' })
+  getMyRequests(@GetUser('companyId') companyId: string) {
+    return this.service.getMyRequests(companyId);
+  }
+
+  @Get('reports/roi')
+  @ApiOperation({ summary: 'Get ROI and sustainability metrics for my company' })
+  getRoiReport(
+    @GetUser('companyId') companyId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.service.getRoiReport(companyId, from, to);
   }
 }

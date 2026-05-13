@@ -15,17 +15,13 @@ export default function DashboardLayout({
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* --- DESKTOP SIDEBAR (Ẩn trên Mobile) --- */}
-      <div className="hidden md:flex h-full w-64 flex-col fixed inset-y-0 z-50">
+    <div className="flex min-h-screen bg-slate-100/80 dark:bg-slate-950">
+      <div className="fixed inset-y-0 left-0 z-40 hidden w-72 lg:flex">
         <Sidebar />
       </div>
 
-      {/* --- MAIN CONTENT AREA --- */}
-      <div className="flex-1 flex flex-col md:pl-64 h-full">
-        
-        {/* --- MOBILE HEADER (Chỉ hiện trên Mobile) --- */}
-        <div className="md:hidden flex items-center justify-between p-4 border-b bg-background z-40">
+      <div className="flex min-h-screen flex-1 flex-col lg:pl-72">
+        <div className="sticky top-0 z-30 flex items-center justify-between border-b bg-background/90 px-4 py-4 backdrop-blur lg:hidden">
           <Logo size="sm" showText={true} />
           
           <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
@@ -34,16 +30,14 @@ export default function DashboardLayout({
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-64 border-r-0 bg-transparent shadow-none">
-              {/* Tái sử dụng Sidebar component cho Mobile */}
+            <SheetContent side="left" className="w-72 border-r-0 bg-transparent p-0 shadow-none">
               <Sidebar />
             </SheetContent>
           </Sheet>
         </div>
 
-        {/* --- PAGE CONTENT --- */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50 dark:bg-slate-900/50">
-          <div className="mx-auto max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <main className="flex-1 px-4 py-4 md:px-6 md:py-6 xl:px-8">
+          <div className="mx-auto max-w-[1600px] animate-in fade-in slide-in-from-bottom-4 duration-500">
             {children}
           </div>
         </main>

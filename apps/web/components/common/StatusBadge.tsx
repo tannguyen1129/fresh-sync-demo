@@ -18,9 +18,21 @@ const statusMap: Record<string, "default" | "secondary" | "destructive" | "outli
   NEW: "outline",
   ENROUTE: "default",
   ARRIVED_GATE: "warning",
+  DEPARTED: "default",
   PICKED_UP: "default",
   DELIVERED: "success",
-  RETURNED: "secondary"
+  RETURN_EMPTY_STARTED: "warning",
+  RETURNED: "secondary",
+
+  // Check-in Statuses
+  PENDING: "outline",
+  AT_GATE: "warning",
+  CHECKED_IN: "success",
+
+  // Recommendation / validation tones
+  READY: "success",
+  FAIL: "destructive",
+  PASS: "success",
 };
 
 // Custom badge styles extended from Shadcn

@@ -15,20 +15,26 @@ export class MonitorService {
 
   @Cron(CronExpression.EVERY_5_SECONDS) // Demo: 5s update 1 lần
   async broadcastCongestion() {
-    // 1. Calculate Metrics (Simplified)
     const activeDisruptions = await this.prisma.disruption.count({
-        where: { isActive: true }
+      where: { isActive: true }
     });
-    
-    // Demo data for chart
+    const now = new Date();
+    const gateCap = await this.prisma.gateCapacity.findFirst({
+      where: {
+        startTime: { lte: now },
+        endTime: { gt: now },
+      },
+    });
+    const yardStatuses = await this.prisma.yardStatus.findMany();
+    const yardOccupancy = Object.fromEntries(
+      yardStatuses.map((yard) => [yard.zoneId, Math.round(yard.occupancyPct)])
+    );
+
     const payload: CongestionUpdatePayload = {
-        timestamp: new Date().toISOString(),
-        gateLoad: Math.floor(Math.random() * 30) + 50, // Random 50-80%
-        yardOccupancy: {
-            'ZONE_A': 45,
-            'ZONE_B': 88, // Congested
-        },
-        activeDisruptions
+      timestamp: now.toISOString(),
+      gateLoad: gateCap ? Math.round((gateCap.usedSlots / gateCap.maxSlots) * 100) : 0,
+      yardOccupancy,
+      activeDisruptions
     };
 
     this.events.emit(EVENTS.CONGESTION_UPDATED, payload);

@@ -1,31 +1,37 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { 
-  IngestDOUpdateDto, 
-  IngestVesselDelayDto, 
-  BookingStatus, 
-  DOStatus, 
+import {
+  IngestDOUpdateDto,
+  IngestVesselDelayDto,
+  BookingStatus,
+  DOStatus,
   DisruptionType,
-  Severity
+  Severity,
+  CreateDisruptionDto,
+  EVENTS,
+  BookingUpdatedPayload,
+  DisruptionCreatedPayload,
+  NotificationPayload,
 } from '@freshsync/shared';
-import { CreateDisruptionDto } from '@freshsync/shared'; // Reuse schema type
 import { OrchestrationService } from 'src/orchestration/orchestration.service';
+import { EventsGateway } from '../gateway/events.gateway';
 
 @Injectable()
 export class IntegrationsService {
   private readonly logger = new Logger(IntegrationsService.name);
 
-  constructor(private prisma: PrismaService,
-    private orchestrationService: OrchestrationService
+  constructor(
+    private prisma: PrismaService,
+    private orchestrationService: OrchestrationService,
+    private events: EventsGateway,
   ) {}
 
   // --- Shipping Line Integrations ---
 
   async updateDOStatus(dto: IngestDOUpdateDto, actorId: string) {
-    // 1. Find Container
     const container = await this.prisma.container.findUnique({
       where: { containerNo: dto.containerNo },
-      include: { deliveryOrder: true }
+      include: { deliveryOrder: true },
     });
 
     if (!container) {
@@ -34,7 +40,6 @@ export class IntegrationsService {
 
     const oldStatus = container.deliveryOrder?.status;
 
-    // 2. Upsert DO
     const updatedDO = await this.prisma.deliveryOrder.upsert({
       where: { containerId: container.id },
       update: {
@@ -48,10 +53,8 @@ export class IntegrationsService {
       },
     });
 
-    // 3. Audit Log
     await this.logAudit(actorId, 'UPDATE_DO', 'DeliveryOrder', updatedDO.id, { old: oldStatus, new: dto.status });
 
-    // 4. Business Rule: Enforce HOLD
     if (dto.status === DOStatus.HOLD) {
       await this.enforceDOHold(container.id, dto.containerNo);
     }
@@ -60,58 +63,61 @@ export class IntegrationsService {
   }
 
   private async enforceDOHold(containerId: string, containerNo: string) {
-    // Find active bookings for this container
-    const activeBooking = await this.prisma.booking.findFirst({
+    const activeBookings = await this.prisma.booking.findMany({
       where: {
-        request: { containerId: containerId },
-        status: { in: [BookingStatus.CONFIRMED, BookingStatus.RESCHEDULED] }
+        request: { containerId },
+        status: { in: [BookingStatus.CONFIRMED, BookingStatus.RESCHEDULED] },
       },
-      include: { request: true } // to get userId/companyId for notification
+      include: {
+        request: {
+          include: { container: true },
+        },
+      },
     });
 
-    if (activeBooking) {
-      // Block Booking
-      await this.prisma.booking.update({
+    for (const activeBooking of activeBookings) {
+      const updated = await this.prisma.booking.update({
         where: { id: activeBooking.id },
         data: {
           status: BookingStatus.BLOCKED,
           blockedReason: 'Commercial Hold applied by Shipping Line',
-        }
+        },
       });
 
-      // Find user to notify (Logistics Coordinator of that company)
-      // Demo simplification: Notify the first user of that company
-      const userToNotify = await this.prisma.user.findFirst({
-        where: { companyId: activeBooking.request.companyId }
-      });
+      await this.notifyCompany(
+        activeBooking.request.companyId,
+        'Booking Blocked',
+        `Booking for container ${containerNo} has been blocked due to D/O HOLD status.`,
+        'ERROR',
+      );
 
-      if (userToNotify) {
-        await this.prisma.notification.create({
-          data: {
-            userId: userToNotify.id,
-            title: 'Booking Blocked 🛑',
-            message: `Booking for container ${containerNo} has been BLOCKED due to D/O HOLD status.`,
-            type: 'ERROR'
-          }
-        });
-      }
-      
+      const payload: BookingUpdatedPayload = {
+        bookingId: updated.id,
+        requestId: updated.requestId,
+        newStatus: BookingStatus.BLOCKED,
+        status: BookingStatus.BLOCKED,
+        reason: updated.blockedReason ?? undefined,
+        slotStart: updated.confirmedSlotStart.toISOString(),
+        slotEnd: updated.confirmedSlotEnd.toISOString(),
+        containerNo,
+      };
+      this.events.emit(EVENTS.BOOKING_UPDATED, payload);
+
       this.logger.warn(`Booking ${activeBooking.id} BLOCKED due to DO HOLD on Container ${containerNo}`);
     }
   }
 
   async updateVessel(dto: IngestVesselDelayDto, actorId: string) {
-     // Demo simple update
-     const vessel = await this.prisma.vessel.findUnique({ where: { vesselCode: dto.vesselCode }});
-     if(!vessel) throw new NotFoundException('Vessel not found');
+    const vessel = await this.prisma.vessel.findUnique({ where: { vesselCode: dto.vesselCode } });
+    if (!vessel) throw new NotFoundException('Vessel not found');
 
-     const updated = await this.prisma.vessel.update({
-         where: { id: vessel.id },
-         data: { eta: new Date(dto.newEta) }
-     });
+    const updated = await this.prisma.vessel.update({
+      where: { id: vessel.id },
+      data: { eta: new Date(dto.newEta) },
+    });
 
-     await this.logAudit(actorId, 'UPDATE_VESSEL_ETA', 'Vessel', vessel.id, { oldEta: vessel.eta, newEta: dto.newEta });
-     return updated;
+    await this.logAudit(actorId, 'UPDATE_VESSEL_ETA', 'Vessel', vessel.id, { oldEta: vessel.eta, newEta: dto.newEta });
+    return updated;
   }
 
   // --- TOS Integrations ---
@@ -125,21 +131,91 @@ export class IntegrationsService {
         endTime: dto.endTime ? new Date(dto.endTime) : undefined,
         affectedZones: dto.affectedZones,
         description: dto.description,
-        isActive: true
-      }
+        isActive: true,
+      },
     });
 
+    await this.logAudit(actorId, 'REPORT_DISRUPTION', 'Disruption', disruption.id, dto);
     await this.orchestrationService.triggerDisruptionReoptimization(disruption.id);
-    
-    // Note: Re-optimization trigger would go here (BullMQ job)
+
+    const payload: DisruptionCreatedPayload = {
+      id: disruption.id,
+      type: disruption.type,
+      severity: disruption.severity,
+      description: disruption.description,
+      affectedZones: disruption.affectedZones,
+    };
+    this.events.emit(EVENTS.DISRUPTION_CREATED, payload);
+
     return disruption;
   }
 
   async updateYardSnapshot(snapshotData: any, actorId: string) {
-      // Demo: Log that we received snapshot
-      this.logger.log(`Received TOS Snapshot: ${JSON.stringify(snapshotData)}`);
-      await this.logAudit(actorId, 'INGEST_TOS_SNAPSHOT', 'System', 'N/A', { size: JSON.stringify(snapshotData).length });
-      return { received: true };
+    const yardEntries = Object.entries((snapshotData?.yardOccupancy ?? {}) as Record<string, number>);
+
+    for (const [zoneId, occupancyPct] of yardEntries) {
+      await this.prisma.yardStatus.upsert({
+        where: { zoneId },
+        update: { occupancyPct: Number(occupancyPct) },
+        create: {
+          zoneId,
+          occupancyPct: Number(occupancyPct),
+        },
+      });
+    }
+
+    if (snapshotData?.gateLoad !== undefined) {
+      const now = new Date();
+      const gateSlot = await this.prisma.gateCapacity.findFirst({
+        where: {
+          startTime: { lte: now },
+          endTime: { gte: now },
+        },
+      });
+
+      if (gateSlot) {
+        const nextUsedSlots = Math.min(
+          gateSlot.maxSlots,
+          Math.max(0, Math.round((Number(snapshotData.gateLoad) / 100) * gateSlot.maxSlots)),
+        );
+        await this.prisma.gateCapacity.update({
+          where: { id: gateSlot.id },
+          data: {
+            usedSlots: nextUsedSlots,
+          },
+        });
+      }
+    }
+
+    this.logger.log(`Received TOS Snapshot: ${JSON.stringify(snapshotData)}`);
+    await this.logAudit(actorId, 'INGEST_TOS_SNAPSHOT', 'System', 'N/A', { size: JSON.stringify(snapshotData).length });
+    return { received: true };
+  }
+
+  private async notifyCompany(companyId: string, title: string, message: string, type: NotificationPayload['type']) {
+    const user = await this.prisma.user.findFirst({
+      where: { companyId },
+    });
+
+    if (!user) return;
+
+    const notification = await this.prisma.notification.create({
+      data: {
+        userId: user.id,
+        title,
+        message,
+        type,
+      },
+    });
+
+    const payload: NotificationPayload = {
+      id: notification.id,
+      title: notification.title,
+      message: notification.message,
+      type,
+      createdAt: notification.createdAt.toISOString(),
+    };
+    this.events.emit(EVENTS.NOTIFICATION_CREATED, payload);
   }
 
   // --- Helper ---
@@ -150,8 +226,8 @@ export class IntegrationsService {
         action,
         entityType: entity,
         entityId,
-        details: details ? JSON.parse(JSON.stringify(details)) : undefined
-      }
+        details: details ? JSON.parse(JSON.stringify(details)) : undefined,
+      },
     });
   }
 }

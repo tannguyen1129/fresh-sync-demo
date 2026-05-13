@@ -35,19 +35,19 @@ export default function LoginPage() {
     switch (role) {
       case 'operator':
         setEmail('ops@port.com');
-        setPassword('admin123');
+        setPassword('123456');
         break;
       case 'logistics': // Business
         setEmail('biz@logistics.com');
-        setPassword('user123');
+        setPassword('123456');
         break;
       case 'authority':
         setEmail('admin@authority.gov');
-        setPassword('admin123');
+        setPassword('123456');
         break;
       case 'driver':
-        setEmail('driver@fleet.com'); // Giữ driver để test app tài xế
-        setPassword('driver123');
+        setEmail('driver@fleet.com');
+        setPassword('123456');
         break;
     }
   };
